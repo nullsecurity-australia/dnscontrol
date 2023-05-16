@@ -1,11 +1,15 @@
 # syntax = docker/dockerfile:1.4
 
-FROM alpine:3.18.0@sha256:02bb6f428431fbc2809c5d1b41eab5a68350194fb508869a33cb1af4444c9b11 as RUN
+FROM golang:alpine AS builder
+COPY . /go/src/dnscontrol
+WORKDIR /go/src/dnscontrol
+RUN apk --no-cache add git \
+ && go run build/build.go -os linux \
+ && cp dnscontrol-Linux dnscontrol
 
-#RUN --mount=type=cache,target=/var/cache/apk \
-#    apk update \
-#    && apk add ca-certificates \
-#    && update-ca-certificates
+FROM alpine:latest AS runner
+COPY --from=builder /go/src/dnscontrol/dnscontrol /usr/local/bin/
+RUN apk --no-cache add curl
 
 COPY dnscontrol /usr/local/bin/
 
