@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/StackExchange/dnscontrol/v3/models"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff2"
-	"github.com/StackExchange/dnscontrol/v3/pkg/txtutil"
-	"github.com/StackExchange/dnscontrol/v3/providers"
+	"github.com/StackExchange/dnscontrol/v4/models"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff2"
+	"github.com/StackExchange/dnscontrol/v4/pkg/txtutil"
+	"github.com/StackExchange/dnscontrol/v4/providers"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -367,6 +367,8 @@ func (c *hednsProvider) GetZoneRecords(domain string, meta map[string]string) (m
 			// Convert to TXT record as SPF is deprecated
 			rc.Type = "TXT"
 			fallthrough
+		case "TXT":
+			err = rc.SetTargetTXTs(models.ParseQuotedTxt(data))
 		default:
 			err = rc.PopulateFromString(rc.Type, data, domain)
 		}

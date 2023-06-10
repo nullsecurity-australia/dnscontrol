@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StackExchange/dnscontrol/v3/models"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff2"
-	"github.com/StackExchange/dnscontrol/v3/pkg/printer"
-	"github.com/StackExchange/dnscontrol/v3/pkg/txtutil"
-	"github.com/StackExchange/dnscontrol/v3/providers"
+	"github.com/StackExchange/dnscontrol/v4/models"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff2"
+	"github.com/StackExchange/dnscontrol/v4/pkg/printer"
+	"github.com/StackExchange/dnscontrol/v4/pkg/txtutil"
+	"github.com/StackExchange/dnscontrol/v4/providers"
 	"github.com/nrdcg/goinwx"
 	"github.com/pquerna/otp/totp"
 )
@@ -308,7 +308,14 @@ func (api *inwxAPI) GetZoneRecords(domain string, meta map[string]string) (model
 		   Records with empty targets (i.e. records with target ".")
 		   are not allowed.
 		*/
-		if record.Type == "CNAME" || record.Type == "MX" || record.Type == "NS" || record.Type == "SRV" {
+		var rtypeAddDot = map[string]bool{
+			"CNAME": true,
+			"MX":    true,
+			"NS":    true,
+			"SRV":   true,
+			"PTR":   true,
+		}
+		if rtypeAddDot[record.Type] {
 			record.Content = record.Content + "."
 		}
 
@@ -334,6 +341,22 @@ func (api *inwxAPI) GetZoneRecords(domain string, meta map[string]string) (model
 	}
 
 	return records, nil
+}
+
+// ListZones returns the zones configured in INWX.
+func (api *inwxAPI) ListZones() ([]string, error) {
+	if api.domainIndex == nil { // only pull the data once.
+		if err := api.fetchNameserverDomains(); err != nil {
+			return nil, err
+		}
+	}
+
+	var domains []string
+	for domain := range api.domainIndex {
+		domains = append(domains, domain)
+	}
+
+	return domains, nil
 }
 
 // updateNameservers is used by GetRegistrarCorrections to update the domain's nameservers.

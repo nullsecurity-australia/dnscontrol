@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StackExchange/dnscontrol/v3/models"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff2"
-	"github.com/StackExchange/dnscontrol/v3/pkg/prettyzone"
-	"github.com/StackExchange/dnscontrol/v3/pkg/printer"
-	"github.com/StackExchange/dnscontrol/v3/providers"
+	"github.com/StackExchange/dnscontrol/v4/models"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff2"
+	"github.com/StackExchange/dnscontrol/v4/pkg/prettyzone"
+	"github.com/StackExchange/dnscontrol/v4/pkg/printer"
+	"github.com/StackExchange/dnscontrol/v4/providers"
 	"github.com/miekg/dns"
 )
 
@@ -156,15 +156,21 @@ func (c *bindProvider) ListZones() ([]string, error) {
 func (c *bindProvider) GetZoneRecords(domain string, meta map[string]string) (models.Records, error) {
 
 	if _, err := os.Stat(c.directory); os.IsNotExist(err) {
-		printer.Printf("\nWARNING: BIND directory %q does not exist!\n", c.directory)
+		printer.Printf("\nWARNING: BIND directory %q does not exist! (will create)\n", c.directory)
 	}
-
-	if c.zonefile == "" {
+	_, okTag := meta[models.DomainTag]
+	_, okUnique := meta[models.DomainUniqueName]
+	if !okTag && !okUnique {
 		// This layering violation is needed for tests only.
 		// Otherwise, this is set already.
 		// Note: In this situation there is no "uniquename" or "tag".
 		c.zonefile = filepath.Join(c.directory,
 			makeFileName(c.filenameformat, domain, domain, ""))
+	} else {
+		c.zonefile = filepath.Join(c.directory,
+			makeFileName(c.filenameformat,
+				meta[models.DomainUniqueName], domain, meta[models.DomainTag]),
+		)
 	}
 	content, err := os.ReadFile(c.zonefile)
 	if os.IsNotExist(err) {
@@ -312,7 +318,11 @@ func (c *bindProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, foundR
 				Msg: msg,
 				F: func() error {
 					printer.Printf("WRITING ZONEFILE: %v\n", c.zonefile)
-					zf, err := os.Create(c.zonefile)
+					fname, err := preprocessFilename(c.zonefile)
+					if err != nil {
+						return fmt.Errorf("could not create zonefile: %w", err)
+					}
+					zf, err := os.Create(fname)
 					if err != nil {
 						return fmt.Errorf("could not create zonefile: %w", err)
 					}
@@ -334,4 +344,22 @@ func (c *bindProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, foundR
 	}
 
 	return corrections, nil
+}
+
+// preprocessFilename pre-processes a filename we're about to os.Create()
+// * On Windows systems, it translates the seperator.
+// * It attempts to mkdir the directories leading up to the filename.
+// * If running on Linux as root, it does not attempt to create directories.
+func preprocessFilename(name string) (string, error) {
+	universalName := filepath.FromSlash(name)
+	// Running as root? Don't create the parent directories. It is unsafe.
+	if os.Getuid() != 0 {
+		// Create the parent directories
+		dir := filepath.Dir(name)
+		universalDir := filepath.FromSlash(dir)
+		if err := os.MkdirAll(universalDir, 0750); err != nil {
+			return "", err
+		}
+	}
+	return universalName, nil
 }

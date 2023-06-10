@@ -52,7 +52,7 @@ install `dnscontrol` in your `$GOBIN` directory.
 To install, simply run
 
 ```shell
-go install github.com/StackExchange/dnscontrol/v3@latest
+go install github.com/StackExchange/dnscontrol/v4@latest
 ```
 
 To download the source
@@ -88,15 +88,11 @@ The file looks like:
 
 {% code title="dnsconfig.js" %}
 ```javascript
-// Providers:
+var REG_NONE = NewRegistrar("none");
+var DNS_BIND = NewDnsProvider("bind");
 
-var REG_NONE = NewRegistrar('none');    // No registrar.
-var DNS_BIND = NewDnsProvider('bind');  // ISC BIND.
-
-// Domains:
-
-D('example.com', REG_NONE, DnsProvider(DNS_BIND),
-    A('@', '1.2.3.4')
+D("example.com", REG_NONE, DnsProvider(DNS_BIND),
+    A("@", "1.2.3.4")
 );
 ```
 {% endcode %}
@@ -194,7 +190,7 @@ FYI: `creds.json` fields can be read from an environment variable. The field mus
 {% code title="creds.json" %}
 ```json
 {
-    "apikey": "$GANDI_V5_APIKEY"
+  "apikey": "$GANDI_V5_APIKEY"
 }
 ```
 {% endcode %}

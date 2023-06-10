@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StackExchange/dnscontrol/v3/models"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff"
-	"github.com/StackExchange/dnscontrol/v3/pkg/diff2"
-	"github.com/StackExchange/dnscontrol/v3/pkg/printer"
-	"github.com/StackExchange/dnscontrol/v3/pkg/txtutil"
-	"github.com/StackExchange/dnscontrol/v3/providers"
+	"github.com/StackExchange/dnscontrol/v4/models"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff"
+	"github.com/StackExchange/dnscontrol/v4/pkg/diff2"
+	"github.com/StackExchange/dnscontrol/v4/pkg/printer"
+	"github.com/StackExchange/dnscontrol/v4/pkg/txtutil"
+	"github.com/StackExchange/dnscontrol/v4/providers"
 	gauth "golang.org/x/oauth2/google"
 	gdns "google.golang.org/api/dns/v1"
 	"google.golang.org/api/googleapi"
@@ -300,8 +300,16 @@ func nativeToRecord(set *gdns.ResourceRecordSet, rec, origin string) (*models.Re
 	r := &models.RecordConfig{}
 	r.SetLabelFromFQDN(set.Name, origin)
 	r.TTL = uint32(set.Ttl)
-	if err := r.PopulateFromString(set.Type, rec, origin); err != nil {
-		return nil, fmt.Errorf("unparsable record received from GCLOUD: %w", err)
+	rtype := set.Type
+	var err error
+	switch rtype {
+	case "TXT":
+		err = r.SetTargetTXTs(models.ParseQuotedTxt(rec))
+	default:
+		err = r.PopulateFromString(rtype, rec, origin)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("unparsable record %q received from GCLOUD: %w", rtype, err)
 	}
 	return r, nil
 }
